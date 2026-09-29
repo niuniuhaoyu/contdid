@@ -1,7 +1,7 @@
 *! contdid: Difference-in-Differences with a Continuous Treatment
-*! version 0.2.0  2026-09-29  Haoyu Niu
+*! version 0.3.0  2026-09-29  Haoyu Niu
 *! Implements Callaway, Goodman-Bacon & Sant'Anna (2024/2025)
-*! Two-period continuous-treatment DiD. ATT(d) and ACRT(d) via B-spline (default linear).
+*! Two-period or staggered continuous-treatment DiD. ATT(d) and ACRT(d) via B-spline (default linear).
 
 program define contdid, rclass
     version 16
@@ -18,6 +18,7 @@ program define contdid, rclass
          degree(integer 1) ///               B-spline degree (1=linear)
          knots(numlist) ///                  explicit interior knots
          nknots(integer 0) ///               number of interior knots (quantile)
+         gvar(varname numeric) ///           treatment timing (0=never treated; enables staggered)
          cband ///                            uniform confidence band (sup-t)
          GRaph]                               // dose-response plot
 
@@ -35,7 +36,7 @@ program define contdid, rclass
     }
     qui levelsof `time', local(tvals)
     local ntvals : word count `tvals'
-    if `ntvals' != 2 {
+    if "`gvar'" == "" & `ntvals' != 2 {
         di as error "contdid: supports only two time periods; found `ntvals' distinct values"
         exit 198
     }
@@ -66,6 +67,105 @@ program define contdid, rclass
     if _rc {
         findfile "bspline.mata"
         qui do "`r(fn)'"
+    }
+
+    * ---------- staggered adoption path ----------
+    if "`gvar'" != "" {
+        qui summarize `gvar', meanonly
+        if r(min) < 0 {
+            di as error "contdid: gvar() must be >= 0 (0 = never treated)"
+            exit 198
+        }
+        qui levelsof `time', local(_tvals)
+        local _T : word count `_tvals'
+        matrix _tvalsm = J(1, `_T', 0)
+        local _ti = 0
+        foreach _tv of local _tvals {
+            local _ti = `_ti' + 1
+            matrix _tvalsm[1, `_ti'] = `_tv'
+        }
+        qui summarize `dose' if `dose' > 0, meanonly
+        local dmin = r(min)
+        local dmax = r(max)
+        local knotmatname ""
+        if "`knots'" != "" {
+            matrix _knots = (`knots')
+            local knotmatname "_knots"
+        }
+        qui reshape wide `depvar', i(`unit') j(`time')
+        local _yvars ""
+        foreach _tv of local _tvals {
+            local _yvars "`_yvars' `depvar'`_tv'"
+        }
+        tempname attm acrm
+        matrix `attm' = J(`npoints', 5, .)
+        matrix `acrm' = J(`npoints', 5, .)
+        mata: _contdid_stag_run("`dose'", "`gvar'", "`_yvars'", "_tvalsm", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_att", "_acrt")
+        forvalues k = 1/`npoints' {
+            local dk = `dmin' + (`dmax' - `dmin') * (`k' - 1) / (`npoints' - 1)
+            matrix `attm'[`k',1] = `dk'
+            matrix `attm'[`k',2] = _att[1,`k']
+            matrix `acrm'[`k',1] = `dk'
+            matrix `acrm'[`k',2] = _acrt[1,`k']
+        }
+
+        * staggered cluster bootstrap
+        if `reps' > 0 {
+            set seed `seed'
+            if "`cluster'" != "" {
+                local bscmd "bsample, cluster(`cluster')"
+            }
+            else {
+                local bscmd "bsample"
+            }
+            tempfile est
+            qui save `est'
+            matrix boot = J(`reps', `npoints', .)
+            matrix boota = J(`reps', `npoints', .)
+            forvalues b = 1/`reps' {
+                qui use `est', clear
+                qui `bscmd'
+                mata: _contdid_stag_run("`dose'", "`gvar'", "`_yvars'", "_tvalsm", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
+                forvalues k = 1/`npoints' {
+                    matrix boot[`b',`k']  = _batt[1,`k']
+                    matrix boota[`b',`k'] = _bacrt[1,`k']
+                }
+            }
+            qui use `est', clear
+            local plo = (100 - `level') / 2
+            local phi = 100 - `plo'
+            svmat boot, names(b_)
+            forvalues k = 1/`npoints' {
+                qui summarize b_`k'
+                matrix `attm'[`k',3] = r(sd)
+                qui centile b_`k', centile(`plo' `phi')
+                matrix `attm'[`k',4] = r(c_1)
+                matrix `attm'[`k',5] = r(c_2)
+            }
+            svmat boota, names(c_)
+            forvalues k = 1/`npoints' {
+                qui summarize c_`k'
+                matrix `acrm'[`k',3] = r(sd)
+                qui centile c_`k', centile(`plo' `phi')
+                matrix `acrm'[`k',4] = r(c_1)
+                matrix `acrm'[`k',5] = r(c_2)
+            }
+        }
+
+        matrix colnames `attm' = d ATT se lb ub
+        matrix colnames `acrm' = d ACRT se lb ub
+        di as text _n "Dose-response ATT(d)  (staggered; B-spline degree `degree'; " ///
+            as text "cluster bootstrap, `reps' reps, `level'% CI)"
+        matlist `attm', border(rows) format(%9.4f)
+        di as text _n "Average causal response ACRT(d)"
+        matlist `acrm', border(rows) format(%9.4f)
+        return matrix attd = `attm'
+        return matrix acrt = `acrm'
+        return scalar degree = `degree'
+        return scalar dmin = `dmin'
+        return scalar dmax = `dmax'
+        restore
+        exit
     }
 
     * ---------- first difference dy = y(post) - y(pre) ----------

@@ -4,7 +4,7 @@
 
 [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-blue.svg)](https://www.stata.com/)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-green.svg)](CHANGELOG.md)
+[![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-green.svg)](CHANGELOG.md)
 
 `contdid` implements the **difference-in-differences (DiD) estimator with a continuous
 treatment** of Callaway, Goodman-Bacon & Sant'Anna (2024/2025), filling a gap in the Stata
@@ -27,9 +27,9 @@ ACRT(d) is the derivative of the fitted curve. Pointwise confidence intervals co
 cluster bootstrap, and an optional **uniform confidence band** (`cband`) covers the whole
 curve simultaneously via a multiplier bootstrap.
 
-> **Scope:** two-period panel / repeated cross-section, continuous dose, ATT(d) and ACRT(d).
-> Staggered adoption, covariates, and the CCK data-driven sieve estimator are on the roadmap
-> (see [CHANGELOG](CHANGELOG.md)).
+> **Scope:** two-period panel / repeated cross-section, or **staggered adoption** (with `gvar()`),
+> continuous dose, ATT(d) and ACRT(d). Covariates and the CCK data-driven sieve estimator are on
+> the roadmap (see [CHANGELOG](CHANGELOG.md)).
 
 ## Installation
 
@@ -50,6 +50,9 @@ contdid y, unit(id) time(t) dose(d) npoints(20) reps(999) seed(12345) graph
 
 * Cubic B-spline with 2 interior knots, plus a uniform confidence band
 contdid y, unit(id) time(t) dose(d) degree(3) nknots(2) reps(999) seed(12345) cband graph
+
+* Staggered adoption: units treated at different times (g = treatment period, 0 = never)
+contdid y, unit(id) time(t) dose(d) gvar(g) npoints(20) reps(999) seed(12345)
 ```
 
 | Option | Default | Description |
@@ -57,6 +60,7 @@ contdid y, unit(id) time(t) dose(d) degree(3) nknots(2) reps(999) seed(12345) cb
 | `unit(varname)` | — | unit / panel identifier (required) |
 | `time(varname)` | — | time variable, two periods (required) |
 | `dose(varname)` | — | continuous treatment dose, ≥ 0, 0 = untreated (required) |
+| `gvar(varname)` | — | treatment timing (0 = never treated); enables staggered adoption |
 | `degree(#)` | 1 | B-spline degree (1 = linear, 2 = quadratic, 3 = cubic) |
 | `nknots(#)` | 0 | number of interior knots (placed at dose quantiles) |
 | `knots(numlist)` | — | explicit interior knots (overrides `nknots`) |

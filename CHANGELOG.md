@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-09-29
+
+### Added
+- Staggered adoption support (`gvar()` option): group-time dose-response estimation across
+  multiple treatment cohorts, aggregated into ATT(d) and ACRT(d), with cluster bootstrap.
+
 ## [0.2.0] - 2026-09-29
 
 ### Added

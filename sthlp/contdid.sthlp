@@ -16,7 +16,8 @@ continuous treatment.
 {p 8 12 2}
 {cmd:contdid} {it:depvar} {ifin}, {cmdab:unit:(}{it:varname}{cmd:)}
 {cmdab:time:(}{it:varname}{cmd:)} {cmdab:dose:(}{it:varname}{cmd:)}
-{cmd:[}{cmdab:degree:(}{it:#}{cmd:)} {cmdab:nknots:(}{it:#}{cmd:)}
+{cmd:[}{cmdab:gvar:(}{it:varname}{cmd:)} {cmdab:degree:(}{it:#}{cmd:)}
+{cmdab:nknots:(}{it:#}{cmd:)}
 {cmdab:knots:(}{it:numlist}{cmd:)} {cmdab:npoints:(}{it:#}{cmd:)}
 {cmdab:level:(}{it:#}{cmd:)} {cmdab:reps:(}{it:#}{cmd:)}
 {cmdab:seed:(}{it:#}{cmd:)} {cmdab:cluster:(}{it:varname}{cmd:)}
@@ -50,6 +51,9 @@ exactly two distinct values.
 {p 4 4 2}{cmdab:dose:(}{it:varname}{cmd:)} is the continuous treatment dose.
 It must be non-negative, with 0 indicating untreated units; a group with
 {cmd:dose} = 0 is required.
+{p 4 4 2}{cmdab:gvar:(}{it:varname}{cmd:)} is the treatment timing (the period
+when a unit is first treated; 0 = never treated). Specifying {cmd:gvar()} enables
+staggered adoption with multiple treatment cohorts.
 {p 4 4 2}{cmdab:degree:(}{it:#}{cmd:)} sets the B-spline degree (default 1 =
 linear; 2 = quadratic; 3 = cubic).
 {p 4 4 2}{cmdab:nknots:(}{it:#}{cmd:)} sets the number of interior knots,

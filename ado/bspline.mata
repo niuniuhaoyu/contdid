@@ -266,4 +266,76 @@ void _contdid_cband(string scalar dvname, string scalar dyvname, real scalar deg
     st_matrix("cb_att", cbatt)
     st_matrix("cb_acrt", cbacrt)
 }
+
+// staggered adoption: group-time dose-response + aggregation.
+// d (n), g (n, 0=never), Y (n x T wide, cols in time order), tvals (sorted time values),
+// deval (eval doses). returns att, acrt aggregated over post-treatment (g,t).
+void _contdid_stag(real colvector d, real colvector g, real matrix Y, real colvector tvals,
+                   real scalar degree, real colvector knots, real colvector deval,
+                   real colvector att, real colvector acrt)
+{
+    real colvector cohorts, dy, dact, gtatt, gtacrt
+    real scalar n, T, np, c, ti, ti2, base, nc, wsum
+    real colvector subidx
+
+    n = rows(d)
+    T = rows(tvals)
+    np = rows(deval)
+    cohorts = uniqrows(select(g, g :> 0))
+
+    att = J(np, 1, 0)
+    acrt = J(np, 1, 0)
+    wsum = 0
+
+    for (c = 1; c <= rows(cohorts); c++) {
+        ti = selectindex(tvals :== cohorts[c])
+        if (ti == 0) continue
+        base = ti - 1
+        if (base < 1) continue
+        for (ti2 = ti; ti2 <= T; ti2++) {
+            subidx = selectindex((g :== cohorts[c]) :| (g :> tvals[ti2]) :| (g :== 0))
+            dy = Y[subidx, ti2] - Y[subidx, base]
+            dact = d[subidx] :* (g[subidx] :== cohorts[c])
+            _contdid_fit(dact, dy, degree, knots, deval, gtatt, gtacrt)
+            nc = sum(g :== cohorts[c])
+            att = att + nc * gtatt
+            acrt = acrt + nc * gtacrt
+            wsum = wsum + nc
+        }
+    }
+    att = att / wsum
+    acrt = acrt / wsum
+}
+
+void _contdid_stag_run(string scalar dvname, string scalar gvname, string scalar yvars,
+                       string scalar tvalsname, real scalar degree,
+                       string scalar knotmatname, real scalar nk, real scalar npoints,
+                       real scalar dmin, real scalar dmax,
+                       string scalar attname, string scalar acrtname)
+{
+    real colvector d, g, dt, knots, deval, att, acrt, tvals
+    real matrix Y, km
+    real scalar i
+    d = st_data(., dvname)
+    g = st_data(., gvname)
+    Y = st_data(., yvars)
+    tvals = st_matrix(tvalsname)'
+    if (nk > 0) {
+        dt = select(d, d :> 0)
+        knots = _quantile_knots(dt, nk)
+    }
+    else if (knotmatname != "") {
+        knots = st_matrix(knotmatname)'
+    }
+    else {
+        knots = J(0, 1, 0)
+    }
+    deval = J(npoints, 1, 0)
+    for (i = 1; i <= npoints; i++) {
+        deval[i] = dmin + (dmax - dmin) * (i - 1) / (npoints - 1)
+    }
+    _contdid_stag(d, g, Y, tvals, degree, knots, deval, att, acrt)
+    st_matrix(attname, att')
+    st_matrix(acrtname, acrt')
+}
 end
