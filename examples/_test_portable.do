@@ -5,7 +5,7 @@ cd "/Users/niuhaoyu/Documents/open code/contdid"
 use "data/contdid_sim.dta", clear
 capture which contdid
 if _rc {
-    adopath + "ado"
+    adopath + "."
 }
 contdid y, unit(id) time(t) dose(d) npoints(5) reps(99) seed(1)
 di as result "PASS: portable paths resolve from package root"

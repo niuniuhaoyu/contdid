@@ -2,7 +2,7 @@
 version 16
 clear all
 cd "/Users/niuhaoyu/Documents/open code/contdid"
-adopath + "/Users/niuhaoyu/Documents/open code/contdid/ado"
+adopath + "/Users/niuhaoyu/Documents/open code/contdid"
 
 local niter   = 50
 local covered = 0

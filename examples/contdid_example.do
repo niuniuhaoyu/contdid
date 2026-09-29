@@ -11,7 +11,7 @@ use "data/contdid_sim.dta", clear
 * 2. Make the command available (skip if already installed)
 capture which contdid
 if _rc {
-    adopath + "ado"
+    adopath + "."
 }
 
 * 3. Estimate the dose-response (cubic spline + uniform band + plot)
