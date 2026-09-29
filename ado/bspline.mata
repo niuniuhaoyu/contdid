@@ -158,4 +158,112 @@ void _contdid_run(string scalar dvname, string scalar dyvname, real scalar degre
     st_matrix(attname, att')
     st_matrix(acrtname, acrt')
 }
+
+// uniform confidence band via multiplier bootstrap (iid units).
+void _contdid_cband(string scalar dvname, string scalar dyvname, real scalar degree,
+                    string scalar knotmatname, real scalar nk, real scalar npoints,
+                    real scalar dmin, real scalar dmax, real scalar B, real scalar level)
+{
+    real matrix Bt, Xt, Be, Bd, Xe, bread, IFb, psi_a, psi_c, cbatt, cbacrt
+    real colvector d, dy, dt, dyt, knots, deval, beta, e, m0, xi, G
+    real colvector sigma_a, sigma_c, supb_a, supb_c, att, acrt, se_a, se_c
+    real scalar n, nt, n0, p0, i, j, b, K, np, alpha, qa, qc
+    real colvector tridx
+
+    d  = st_data(., dvname)
+    dy = st_data(., dyvname)
+    if (nk > 0) {
+        dt = select(d, d :> 0)
+        knots = _quantile_knots(dt, nk)
+    }
+    else if (knotmatname != "") {
+        knots = st_matrix(knotmatname)'
+    }
+    else {
+        knots = J(0, 1, 0)
+    }
+    deval = J(npoints, 1, 0)
+    for (i = 1; i <= npoints; i++) {
+        deval[i] = dmin + (dmax - dmin) * (i - 1) / (npoints - 1)
+    }
+
+    n = rows(d)
+    dt = select(d, d :> 0)
+    dyt = select(dy, d :> 0)
+    nt = rows(dt)
+    n0 = n - nt
+    p0 = n0 / n
+    m0 = mean(select(dy, d :== 0))
+
+    Bt = bspline_basis(dt, degree, knots)
+    Xt = J(nt, 1, 1), Bt
+    K = cols(Bt)
+    beta = qrsolve(Xt, dyt)
+    e = dyt - Xt * beta
+    bread = invsym(Xt'Xt / nt)
+
+    Be = bspline_basis(deval, degree, knots)
+    Xe = J(rows(Be), 1, 1), Be
+    Bd = bspline_deriv(deval, degree, knots)
+    np = rows(deval)
+
+    // point estimates
+    att = Xe * beta :- m0
+    acrt = Bd * beta[2..rows(beta)]
+
+    IFb = J(nt, K+1, 0)
+    for (i = 1; i <= nt; i++) {
+        IFb[i, .] = (e[i] * (bread * Xt[i,.]'))'
+    }
+    tridx = selectindex(d :> 0)
+
+    psi_a = J(n, np, 0)
+    psi_c = J(n, np, 0)
+    for (j = 1; j <= np; j++) {
+        for (i = 1; i <= nt; i++) {
+            psi_a[tridx[i], j] = Xe[j, .] * IFb[i, .]'
+            psi_c[tridx[i], j] = Bd[j, .] * IFb[i, 2..cols(IFb)]'
+        }
+        for (i = 1; i <= n; i++) {
+            if (d[i] == 0) psi_a[i, j] = -(dy[i] - m0) / p0
+        }
+    }
+
+    sigma_a = J(1, np, 0)
+    sigma_c = J(1, np, 0)
+    for (j = 1; j <= np; j++) {
+        sigma_a[1, j] = sqrt(mean(psi_a[., j] :^ 2))
+        sigma_c[1, j] = sqrt(mean(psi_c[., j] :^ 2))
+    }
+
+    supb_a = J(B, 1, 0)
+    supb_c = J(B, 1, 0)
+    for (b = 1; b <= B; b++) {
+        xi = rnormal(n, 1, 0, 1)
+        G = (xi' * psi_a) / sqrt(n)
+        supb_a[b] = max(abs(G) :/ sigma_a)
+        G = (xi' * psi_c) / sqrt(n)
+        supb_c[b] = max(abs(G) :/ sigma_c)
+    }
+
+    alpha = 1 - level / 100
+    supb_a = sort(supb_a, 1)
+    supb_c = sort(supb_c, 1)
+    qa = ceil((1 - alpha) * B)
+    st_numscalar("crit_att", supb_a[qa])
+    st_numscalar("crit_acrt", supb_c[qa])
+
+    se_a = sigma_a' / sqrt(n)
+    se_c = sigma_c' / sqrt(n)
+
+    // uniform band matrices: [d, est, cb_lb, cb_ub]
+    cbatt = J(np, 4, 0)
+    cbacrt = J(np, 4, 0)
+    for (j = 1; j <= np; j++) {
+        cbatt[j, .]  = (deval[j], att[j], att[j] - supb_a[qa] * se_a[j], att[j] + supb_a[qa] * se_a[j])
+        cbacrt[j, .] = (deval[j], acrt[j], acrt[j] - supb_c[qa] * se_c[j], acrt[j] + supb_c[qa] * se_c[j])
+    }
+    st_matrix("cb_att", cbatt)
+    st_matrix("cb_acrt", cbacrt)
+}
 end

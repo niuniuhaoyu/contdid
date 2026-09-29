@@ -18,6 +18,7 @@ program define contdid, rclass
          degree(integer 1) ///               B-spline degree (1=linear)
          knots(numlist) ///                  explicit interior knots
          nknots(integer 0) ///               number of interior knots (quantile)
+         cband ///                            uniform confidence band (sup-t)
          GRaph]                               // dose-response plot
 
     local depvar `varlist'
@@ -53,6 +54,10 @@ program define contdid, rclass
     }
     if "`knots'" != "" & `nknots' > 0 {
         di as error "contdid: specify either knots() or nknots(), not both"
+        exit 198
+    }
+    if "`cband'" != "" & `reps' == 0 {
+        di as error "contdid: cband requires reps() > 0 (multiplier bootstrap draws)"
         exit 198
     }
 
@@ -92,6 +97,11 @@ program define contdid, rclass
         matrix `attm'[`k',2] = _att[1,`k']
         matrix `acrm'[`k',1] = `dk'
         matrix `acrm'[`k',2] = _acrt[1,`k']
+    }
+
+    * ---------- uniform confidence band (cband) ----------
+    if "`cband'" != "" {
+        mata: _contdid_cband("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', `reps', `level')
     }
 
     * ---------- cluster bootstrap ----------
@@ -149,6 +159,14 @@ program define contdid, rclass
     di as text _n "Average causal response ACRT(d)  (derivative of ATT(d))"
     matlist `acrm', border(rows) format(%9.4f)
 
+    if "`cband'" != "" {
+        di as text _n "Uniform confidence band (sup-t): crit_ATT = " ///
+            as result %9.3f scalar(crit_att) as text ",  crit_ACRT = " ///
+            as result %9.3f scalar(crit_acrt)
+        di as text "ATT(d) with uniform band [cb_lb, cb_ub]:"
+        matlist cb_att, border(rows) format(%9.4f)
+    }
+
     * ---------- graph ----------
     if "`graph'" != "" {
         qui clear
@@ -180,6 +198,12 @@ program define contdid, rclass
     return scalar degree = `degree'
     return scalar dmin   = `dmin'
     return scalar dmax   = `dmax'
+    if "`cband'" != "" {
+        return scalar crit_att = crit_att
+        return scalar crit_acrt = crit_acrt
+        return matrix cb_att  = cb_att
+        return matrix cb_acrt = cb_acrt
+    }
 
     restore
 end
