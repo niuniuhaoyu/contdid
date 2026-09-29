@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-09-29
+
+### Added
+- B-spline dose-response modeling (`degree()`, `knots()`, `nknots()` options); default `degree(1)` preserves v0.1.0 behavior.
+- ACRT(d) — average causal response (derivative of ATT(d)), returned as `r(acrt)`.
+- Uniform confidence band (`cband` option) via influence-function multiplier bootstrap (sup-t).
+- Mata B-spline basis/derivative (Cox-de Boor), verified against R `splines2`.
+
 ## [0.1.0] - 2026-09-29
 
 ### Added

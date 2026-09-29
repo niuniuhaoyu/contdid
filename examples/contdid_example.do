@@ -14,8 +14,8 @@ if _rc {
     adopath + "ado"
 }
 
-* 3. Estimate the dose-response function
-contdid y, unit(id) time(t) dose(d) npoints(20) reps(999) seed(12345) graph
+* 3. Estimate the dose-response (cubic spline + uniform band + plot)
+contdid y, unit(id) time(t) dose(d) degree(3) nknots(2) npoints(20) reps(999) seed(12345) cband graph
 
 * 4. Save the figure
 graph export "examples/contdid_dose_response.png", width(1200) replace
