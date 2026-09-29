@@ -239,7 +239,7 @@ void _contdid_cband(string scalar dvname, string scalar dyvname, real scalar deg
     supb_a = J(B, 1, 0)
     supb_c = J(B, 1, 0)
     for (b = 1; b <= B; b++) {
-        xi = rnormal(n, 1, 0, 1)
+        xi = (runiform(n, 1) :> 0.5) :* 2 :- 1   // Rademacher +/-1 multipliers
         G = (xi' * psi_a) / sqrt(n)
         supb_a[b] = max(abs(G) :/ sigma_a)
         G = (xi' * psi_c) / sqrt(n)

@@ -101,6 +101,7 @@ program define contdid, rclass
 
     * ---------- uniform confidence band (cband) ----------
     if "`cband'" != "" {
+        set seed `seed'
         mata: _contdid_cband("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', `reps', `level')
     }
 
