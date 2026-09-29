@@ -6,8 +6,6 @@ version 16
 clear all
 set seed 12345
 
-cd "/Users/niuhaoyu/Documents/open code/contdid"
-
 set obs 4000
 gen id = _n
 * ~20% untreated (D=0), ~80% treated with dose ~ U(0,1)
