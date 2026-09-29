@@ -136,6 +136,27 @@ program define contdid, rclass
         as text "cluster bootstrap, `reps' reps, `level'% CI)"
     matlist `attm', border(rows) format(%9.4f)
 
+    * ---------- graph ----------
+    if "`graph'" != "" {
+        qui clear
+        qui set obs `npoints'
+        gen double d   = .
+        gen double att = .
+        gen double lb  = .
+        gen double ub  = .
+        forvalues k = 1/`npoints' {
+            qui replace d   = `attm'[`k',1] in `k'
+            qui replace att = `attm'[`k',2] in `k'
+            qui replace lb  = `attm'[`k',4] in `k'
+            qui replace ub  = `attm'[`k',5] in `k'
+        }
+        twoway (rarea ub lb d, color(gs13)) ///
+               (line att d, lcolor(navy) lwidth(medthick)), ///
+            legend(off) title("Dose-response: ATT(d)") ///
+            xtitle("Dose (d)") ytitle("ATT(d)") ///
+            note("linear-in-dose; cluster bootstrap `level'% CI", size(small))
+    }
+
     * ---------- returns ----------
     return matrix attd = `attm'
     return scalar b_d    = `b_d'
