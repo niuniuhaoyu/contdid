@@ -1,12 +1,7 @@
 *! contdid: Difference-in-Differences with a Continuous Treatment
-*! version 0.1.0  2026-09-29  Haoyu Niu
+*! version 0.2.0  2026-09-29  Haoyu Niu
 *! Implements Callaway, Goodman-Bacon & Sant'Anna (2024/2025)
-*! Two-period continuous-treatment DiD, linear-in-dose ATT(d)
-*!
-*! ATT(d) = E[ΔY | D=d] - E[ΔY | D=0]
-*!   linear fit: ΔY = a + b*D  on treated (D>0) units
-*!   baseline:   mean(ΔY | D=0)  (untreated units)
-*! Inference:   cluster bootstrap (default cluster = unit), percentile CI
+*! Two-period continuous-treatment DiD. ATT(d) and ACRT(d) via B-spline (default linear).
 
 program define contdid, rclass
     version 16
@@ -17,9 +12,12 @@ program define contdid, rclass
         dose(varname numeric) ///           continuous treatment dose
         [npoints(integer 20) ///             number of evaluation doses
          level(real 95) ///                  confidence level (%)
-         seed(integer 12345) ///             RNG seed (used in bootstrap)
+         seed(integer 12345) ///             RNG seed (bootstrap)
          reps(integer 999) ///               bootstrap replications
          cluster(varname) ///                cluster variable (default = unit)
+         degree(integer 1) ///               B-spline degree (1=linear)
+         knots(numlist) ///                  explicit interior knots
+         nknots(integer 0) ///               number of interior knots (quantile)
          GRaph]                               // dose-response plot
 
     local depvar `varlist'
@@ -34,23 +32,35 @@ program define contdid, rclass
         di as error "contdid: dose variable `dose' must be non-negative"
         exit 198
     }
-
     qui levelsof `time', local(tvals)
     local ntvals : word count `tvals'
     if `ntvals' != 2 {
-        di as error "contdid: v1 supports only two time periods; found `ntvals' distinct values"
+        di as error "contdid: supports only two time periods; found `ntvals' distinct values"
         exit 198
     }
-
     qui count if `dose' == 0
     if r(N) == 0 {
         di as error "contdid: no untreated units (dose==0); ATT(d) baseline requires an untreated group"
         exit 198
     }
-
     if `npoints' < 2 {
         di as error "contdid: npoints() must be at least 2"
         exit 198
+    }
+    if `degree' < 1 {
+        di as error "contdid: degree() must be >= 1"
+        exit 198
+    }
+    if "`knots'" != "" & `nknots' > 0 {
+        di as error "contdid: specify either knots() or nknots(), not both"
+        exit 198
+    }
+
+    * ---------- load Mata functions (once per session) ----------
+    capture mata: bspline_basis(J(1,1,0.5), 1, J(0,1,0))
+    if _rc {
+        findfile "bspline.mata"
+        qui do "`r(fn)'"
     }
 
     * ---------- first difference dy = y(post) - y(pre) ----------
@@ -59,63 +69,55 @@ program define contdid, rclass
     by `unit': gen double `dy' = `depvar'[_N] - `depvar'[1]
     qui by `unit': keep if _n == _N        // one row per unit
 
-    * ---------- linear-in-dose among treated ----------
-    qui regress `dy' `dose' if `dose' > 0
-    local b_d    = _b[`dose']
-    local b_cons = _b[_cons]
-
-    * ---------- untreated baseline ----------
-    qui summarize `dy' if `dose' == 0, meanonly
-    local m0 = r(mean)
-
     * ---------- dose grid ----------
     qui summarize `dose' if `dose' > 0, meanonly
     local dmin = r(min)
     local dmax = r(max)
 
-    * ---------- ATT(d) point estimates ----------
-    tempname attm
+    * ---------- explicit knots ----------
+    local knotmatname ""
+    if "`knots'" != "" {
+        matrix _knots = (`knots')
+        local knotmatname "_knots"
+    }
+
+    * ---------- point estimate (Mata) ----------
+    tempname attm acrm
     matrix `attm' = J(`npoints', 5, .)
+    matrix `acrm' = J(`npoints', 5, .)
+    mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_att", "_acrt")
     forvalues k = 1/`npoints' {
-        local dk  = `dmin' + (`dmax' - `dmin') * (`k' - 1) / (`npoints' - 1)
-        local att = `b_cons' + `b_d' * `dk' - `m0'
+        local dk = `dmin' + (`dmax' - `dmin') * (`k' - 1) / (`npoints' - 1)
         matrix `attm'[`k',1] = `dk'
-        matrix `attm'[`k',2] = `att'
+        matrix `attm'[`k',2] = _att[1,`k']
+        matrix `acrm'[`k',1] = `dk'
+        matrix `acrm'[`k',2] = _acrt[1,`k']
     }
 
     * ---------- cluster bootstrap ----------
     if `reps' > 0 {
         set seed `seed'
-
-        * bootstrap resampling command: default resample units (1 obs/unit);
-        * if cluster() specified, resample clusters
         if "`cluster'" != "" {
             local bscmd "bsample, cluster(`cluster')"
         }
         else {
             local bscmd "bsample"
         }
-
-        * save collapsed estimation sample, then resample via tempfile (no nested preserve)
         tempfile est
         qui save `est'
 
         matrix boot = J(`reps', `npoints', .)
+        matrix boota = J(`reps', `npoints', .)
         forvalues b = 1/`reps' {
             qui use `est', clear
             qui `bscmd'
-            qui regress `dy' `dose' if `dose' > 0
-            local bd = _b[`dose']
-            local bc = _b[_cons]
-            qui summarize `dy' if `dose' == 0, meanonly
-            local bm0 = r(mean)
+            mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
             forvalues k = 1/`npoints' {
-                local dk = `dmin' + (`dmax' - `dmin') * (`k' - 1) / (`npoints' - 1)
-                matrix boot[`b',`k'] = `bc' + `bd' * `dk' - `bm0'
+                matrix boot[`b',`k']  = _batt[1,`k']
+                matrix boota[`b',`k'] = _bacrt[1,`k']
             }
         }
 
-        * --- se and percentile CI from bootstrap draws ---
         qui use `est', clear
         local plo = (100 - `level') / 2
         local phi = 100 - `plo'
@@ -127,14 +129,25 @@ program define contdid, rclass
             matrix `attm'[`k',4] = r(c_1)
             matrix `attm'[`k',5] = r(c_2)
         }
+        svmat boota, names(c_)
+        forvalues k = 1/`npoints' {
+            qui summarize c_`k'
+            matrix `acrm'[`k',3] = r(sd)
+            qui centile c_`k', centile(`plo' `phi')
+            matrix `acrm'[`k',4] = r(c_1)
+            matrix `acrm'[`k',5] = r(c_2)
+        }
     }
 
     matrix colnames `attm' = d ATT se lb ub
+    matrix colnames `acrm' = d ACRT se lb ub
 
     * ---------- display ----------
-    di as text _n "Dose-response ATT(d)  (linear-in-dose; " ///
+    di as text _n "Dose-response ATT(d)  (B-spline degree `degree'; " ///
         as text "cluster bootstrap, `reps' reps, `level'% CI)"
     matlist `attm', border(rows) format(%9.4f)
+    di as text _n "Average causal response ACRT(d)  (derivative of ATT(d))"
+    matlist `acrm', border(rows) format(%9.4f)
 
     * ---------- graph ----------
     if "`graph'" != "" {
@@ -144,24 +157,27 @@ program define contdid, rclass
         gen double att = .
         gen double lb  = .
         gen double ub  = .
+        gen double acrt = .
         forvalues k = 1/`npoints' {
-            qui replace d   = `attm'[`k',1] in `k'
-            qui replace att = `attm'[`k',2] in `k'
-            qui replace lb  = `attm'[`k',4] in `k'
-            qui replace ub  = `attm'[`k',5] in `k'
+            qui replace d    = `attm'[`k',1] in `k'
+            qui replace att  = `attm'[`k',2] in `k'
+            qui replace lb   = `attm'[`k',4] in `k'
+            qui replace ub   = `attm'[`k',5] in `k'
+            qui replace acrt = `acrm'[`k',2] in `k'
         }
         twoway (rarea ub lb d, color(gs13)) ///
-               (line att d, lcolor(navy) lwidth(medthick)), ///
-            legend(off) title("Dose-response: ATT(d)") ///
-            xtitle("Dose (d)") ytitle("ATT(d)") ///
-            note("linear-in-dose; cluster bootstrap `level'% CI", size(small))
+               (line att d, lcolor(navy) lwidth(medthick)) ///
+               (line acrt d, lcolor(maroon) lwidth(medthick) yaxis(2)), ///
+            legend(order(2 "ATT(d)" 3 "ACRT(d)") rows(1)) ///
+            title("Dose-response: ATT(d) and ACRT(d)") ///
+            xtitle("Dose (d)") ytitle("ATT(d)", axis(1)) ytitle("ACRT(d)", axis(2)) ///
+            note("B-spline degree `degree'; cluster bootstrap `level'% CI", size(small))
     }
 
     * ---------- returns ----------
     return matrix attd = `attm'
-    return scalar b_d    = `b_d'
-    return scalar b_cons = `b_cons'
-    return scalar m0     = `m0'
+    return matrix acrt = `acrm'
+    return scalar degree = `degree'
     return scalar dmin   = `dmin'
     return scalar dmax   = `dmax'
 
