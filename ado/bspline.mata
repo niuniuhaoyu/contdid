@@ -15,12 +15,16 @@ real rowvector _bsp_full(real scalar x, real scalar p, real colvector t)
     real rowvector B, Bnew
     L = rows(t)
     Kfull = L - p - 1
+    // right boundary: last basis function = 1 (0/0 in recurrence would kill it)
+    if (x == t[L]) {
+        B = J(1, Kfull, 0)
+        B[Kfull] = 1
+        return(B)
+    }
     B = J(1, Kfull + p, 0)
-    for (i = 1; i <= Kfull + p - 1; i++) {
+    for (i = 1; i <= Kfull + p; i++) {
         if (t[i] <= x & x < t[i+1]) B[i] = 1
     }
-    i = Kfull + p                                  // right boundary: include x == t[L]
-    if (t[i] <= x & x <= t[i+1]) B[i] = 1
     for (k = 1; k <= p; k++) {
         Bnew = J(1, Kfull + p - k, 0)
         for (i = 1; i <= Kfull + p - k; i++) {
@@ -37,11 +41,19 @@ real rowvector _bsp_full(real scalar x, real scalar p, real colvector t)
 // full derivative (1 x Kfull)
 real rowvector _bsp_deriv_full(real scalar x, real scalar p, real colvector t)
 {
-    real scalar L, Kfull, i, denom1, denom2
+    real scalar L, Kfull, i, denom1, denom2, val
     real rowvector Blow, D
     L = rows(t)
     Kfull = L - p - 1
     if (p == 0) return(J(1, Kfull, 0))
+    // right boundary: last two basis fns have derivatives -val, +val
+    if (x == t[L]) {
+        D = J(1, Kfull, 0)
+        val = p / (t[L-1] - t[L-p-1])
+        D[Kfull-1] = -val
+        D[Kfull]   =  val
+        return(D)
+    }
     Blow = _bsp_full(x, p-1, t)                    // length Kfull + 1
     D = J(1, Kfull, 0)
     for (i = 1; i <= Kfull; i++) {
