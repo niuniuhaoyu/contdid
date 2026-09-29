@@ -6,6 +6,7 @@
 *! ATT(d) = E[ΔY | D=d] - E[ΔY | D=0]
 *!   linear fit: ΔY = a + b*D  on treated (D>0) units
 *!   baseline:   mean(ΔY | D=0)  (untreated units)
+*! Inference:   cluster bootstrap (default cluster = unit), percentile CI
 
 program define contdid, rclass
     version 16
@@ -67,11 +68,12 @@ program define contdid, rclass
     qui summarize `dy' if `dose' == 0, meanonly
     local m0 = r(mean)
 
-    * ---------- dose grid and ATT(d) ----------
+    * ---------- dose grid ----------
     qui summarize `dose' if `dose' > 0, meanonly
     local dmin = r(min)
     local dmax = r(max)
 
+    * ---------- ATT(d) point estimates ----------
     tempname attm
     matrix `attm' = J(`npoints', 5, .)
     forvalues k = 1/`npoints' {
@@ -79,11 +81,59 @@ program define contdid, rclass
         local att = `b_cons' + `b_d' * `dk' - `m0'
         matrix `attm'[`k',1] = `dk'
         matrix `attm'[`k',2] = `att'
-        // cols 3-5 (se, lb, ub) filled by cluster bootstrap (Task 4)
     }
+
+    * ---------- cluster bootstrap ----------
+    if `reps' > 0 {
+        set seed `seed'
+
+        * bootstrap resampling command: default resample units (1 obs/unit);
+        * if cluster() specified, resample clusters
+        if "`cluster'" != "" {
+            local bscmd "bsample, cluster(`cluster')"
+        }
+        else {
+            local bscmd "bsample"
+        }
+
+        * save collapsed estimation sample, then resample via tempfile (no nested preserve)
+        tempfile est
+        qui save `est'
+
+        matrix boot = J(`reps', `npoints', .)
+        forvalues b = 1/`reps' {
+            qui use `est', clear
+            qui `bscmd'
+            qui regress `dy' `dose' if `dose' > 0
+            local bd = _b[`dose']
+            local bc = _b[_cons]
+            qui summarize `dy' if `dose' == 0, meanonly
+            local bm0 = r(mean)
+            forvalues k = 1/`npoints' {
+                local dk = `dmin' + (`dmax' - `dmin') * (`k' - 1) / (`npoints' - 1)
+                matrix boot[`b',`k'] = `bc' + `bd' * `dk' - `bm0'
+            }
+        }
+
+        * --- se and percentile CI from bootstrap draws ---
+        qui use `est', clear
+        local plo = (100 - `level') / 2
+        local phi = 100 - `plo'
+        svmat boot, names(b_)
+        forvalues k = 1/`npoints' {
+            qui summarize b_`k'
+            matrix `attm'[`k',3] = r(sd)
+            qui centile b_`k', centile(`plo' `phi')
+            matrix `attm'[`k',4] = r(c_1)
+            matrix `attm'[`k',5] = r(c_2)
+        }
+    }
+
     matrix colnames `attm' = d ATT se lb ub
 
-    di as text _n "Dose-response ATT(d)  (linear-in-dose; SE/CI in Task 4)"
+    * ---------- display ----------
+    di as text _n "Dose-response ATT(d)  (linear-in-dose; " ///
+        as text "cluster bootstrap, `reps' reps, `level'% CI)"
     matlist `attm', border(rows) format(%9.4f)
 
     * ---------- returns ----------
@@ -91,6 +141,8 @@ program define contdid, rclass
     return scalar b_d    = `b_d'
     return scalar b_cons = `b_cons'
     return scalar m0     = `m0'
+    return scalar dmin   = `dmin'
+    return scalar dmax   = `dmax'
 
     restore
 end
