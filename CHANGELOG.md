@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-09-29
+
+First stable release. Two-period and staggered continuous-treatment DiD, B-spline
+dose-response ATT(d) and ACRT(d), cluster-bootstrap pointwise intervals, and a
+multiplier-bootstrap uniform confidence band.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added

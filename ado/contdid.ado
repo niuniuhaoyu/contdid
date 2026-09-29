@@ -1,5 +1,5 @@
 *! contdid: Difference-in-Differences with a Continuous Treatment
-*! version 0.3.0  2026-09-29  Haoyu Niu
+*! version 1.0.0  2026-09-29  Haoyu Niu
 *! Implements Callaway, Goodman-Bacon & Sant'Anna (2024/2025)
 *! Two-period or staggered continuous-treatment DiD. ATT(d) and ACRT(d) via B-spline (default linear).
 

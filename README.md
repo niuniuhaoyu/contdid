@@ -4,7 +4,7 @@
 
 [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-blue.svg)](https://www.stata.com/)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-green.svg)](CHANGELOG.md)
+[![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-green.svg)](CHANGELOG.md)
 
 `contdid` implements the **difference-in-differences (DiD) estimator with a continuous
 treatment** of Callaway, Goodman-Bacon & Sant'Anna (2024/2025), filling a gap in the Stata
@@ -116,7 +116,7 @@ Software:
   title   = {contdid: Difference-in-Differences with a Continuous Treatment for Stata},
   author  = {Haoyu Niu},
   year    = {2026},
-  version = {0.2.0},
+  version = {1.0.0},
   url     = {https://github.com/niuniuhaoyu/contdid}
 }
 ```

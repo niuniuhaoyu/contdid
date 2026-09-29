@@ -1,7 +1,7 @@
 {smcl}
 {* 29 Sep 2026}{...}
 {hline}
-{p 4 8 2}{bf:contdid} — Difference-in-Differences with a continuous treatment{right:version 0.2.0}
+{p 4 8 2}{bf:contdid} — Difference-in-Differences with a continuous treatment{right:version 1.0.0}
 {hline}
 
 {title:Title}
@@ -105,7 +105,7 @@ Difference-in-Differences with a Continuous Treatment. NBER Working Paper 32117.
 
 {p 4 4 2}
 Niu, H. 2026. contdid: Difference-in-Differences with a Continuous Treatment
-for Stata. Version 0.2.0.
+for Stata. Version 1.0.0.
 
 {title:Also see}
 
