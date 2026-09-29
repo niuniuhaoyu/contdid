@@ -1,0 +1,11 @@
+d 'contdid': module for difference-in-differences with a continuous treatment
+d
+d Implements Callaway, Goodman-Bacon & Sant'Anna (2024/2025)
+d two-period continuous-treatment DiD (linear-in-dose ATT(d)).
+d
+d Author: Haoyu Niu
+d Distribution-Date: 20260929
+d Requires: Stata version 16
+d
+f contdid.ado
+f contdid.sthlp
