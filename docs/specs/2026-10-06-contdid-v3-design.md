@@ -124,7 +124,7 @@ contdid depvar [if] [in], unit(varname) time(varname) dose(varname) ///
 1. **协变量正确性（v3a）**：条件 DGP（`examples/v3a_simdata.do`：X 同时影响处理选择与未处理趋势）下，无条件估计有偏、`covariates(x)` 估计接近真值。**无 R 对拍**（R 不支持协变量）；以 R 原型 `examples/reference/v3a_prototype.R` 逐位对齐 + 模拟证据。
 2. **Stata == R 原型（v3a）**：两者在条件 DGP 上逐位一致（已达成，见 `_test_v3a_cov.do`）。
 3. **向后兼容**：不带 `covariates()` 时全部旧测试通过、结果与 v1.0.0 逐位一致（`examples/_test_backcompat.do`）。
-4. **统一带覆盖（v3a）**：Monte Carlo 检验含协变量下 sup-t 带覆盖 ≥ 名义水平。**（未完成：cband+协变量的影响函数）**
+4. **统一带覆盖（v3a）**：Monte Carlo（100 次）联合覆盖 **= 0.94**（名义 0.95），达标。见 `examples/_test_v3a_cband_cov.do`。
 5. **CCK 正确性（v3b）**：与 R `dose_est_method="cck"` 对拍；无 R 时至少用模拟 DGP 的自洽性 + 与 `parametric` 在大样本下收敛到同一曲线。
 
 ---
@@ -135,7 +135,7 @@ contdid depvar [if] [in], unit(varname) time(varname) dose(varname) ///
 - [x] 条件平行趋势 DGP 下估计接近真值（模拟证据，`_test_v3a_cov.do` PASS）
 - [x] Stata 与 R 原型（`v3a_prototype.R`）逐位一致
 - [x] 向后兼容：默认路径与 v1.0.0 逐位一致
-- [ ] 含协变量的 `cband`（影响函数）——**未完成**
+- [x] 含协变量的 `cband`（影响函数）——已实现，联合覆盖 0.94
 - [ ] `dose_est_method(cck)` 可用且有文档（v3b）
 - [ ] 全部旧测试回归通过、向后兼容
 - [ ] README / sthlp / CHANGELOG 更新；版本升至 v0.4.0（v3a）与 v0.5.0（v3b）
