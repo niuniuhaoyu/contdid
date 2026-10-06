@@ -338,4 +338,119 @@ void _contdid_stag_run(string scalar dvname, string scalar gvname, string scalar
     st_matrix(attname, att')
     st_matrix(acrtname, acrt')
 }
+
+// ---------------------------------------------------------------------------
+// v3a: covariates (Conditional Strong Parallel Trends; CGBS SI.3, Prop S3)
+//   ATT_x(d) = E[dY | X=x, D=d] - E[dY | X=x, D=0]
+//   ATT(d)   = E_X[ ATT_x(d) | D>0 ]  (aggregate over treated X)
+// Model: dY = b0 + B(D)'b + X'g + sum_j (B(D)*X_j)'d_j + e
+// Requires explicit boundary knots [0, dmax] so that B(0) is well-defined.
+// ---------------------------------------------------------------------------
+
+real matrix bspline_basis_bk(real colvector x, real scalar p, real colvector interior,
+                             real scalar lo, real scalar hi)
+{
+    real scalar n, i, K, Kfull
+    real colvector t
+    real matrix out
+    real rowvector row
+    n = rows(x)
+    K = rows(interior) + p
+    Kfull = p + 1 + rows(interior)
+    t = _extknots(p, interior, lo, hi)
+    out = J(n, K, 0)
+    for (i = 1; i <= n; i++) {
+        row = _bsp_full(x[i], p, t)
+        out[i, .] = row[| 2 \ Kfull |]
+    }
+    return(out)
+}
+
+real matrix bspline_deriv_bk(real colvector x, real scalar p, real colvector interior,
+                             real scalar lo, real scalar hi)
+{
+    real scalar n, i, K, Kfull
+    real colvector t
+    real matrix out
+    real rowvector row
+    n = rows(x)
+    K = rows(interior) + p
+    Kfull = p + 1 + rows(interior)
+    t = _extknots(p, interior, lo, hi)
+    out = J(n, K, 0)
+    for (i = 1; i <= n; i++) {
+        row = _bsp_deriv_full(x[i], p, t)
+        out[i, .] = row[| 2 \ Kfull |]
+    }
+    return(out)
+}
+
+void _contdid_fit_cov(real colvector d, real colvector dy, real matrix Xm,
+                      real scalar degree, real colvector knots,
+                      real colvector deval, real colvector att, real colvector acrt)
+{
+    real scalar n, J, K, dmax, np, i, j, off
+    real matrix B, W, beta, Bn, Bd
+    real rowvector B0, g, xbar
+
+    n = rows(d); J = cols(Xm); dmax = max(d)
+    B = bspline_basis_bk(d, degree, knots, 0, dmax)
+    K = cols(B)
+    W = (J(n,1,1), B, Xm)
+    for (j = 1; j <= J; j++) W = W, (B :* Xm[.,j])
+    beta = qrsolve(W, dy)
+
+    // treatment-group covariate means
+    xbar = J(1, J, 0)
+    for (j = 1; j <= J; j++) xbar[1,j] = mean(select(Xm[.,j], d :> 0))
+
+    // g[k] = beta_B[k] + sum_j delta_{j,k} * xbar_j
+    g = J(1, K, 0)
+    for (i = 1; i <= K; i++) g[1,i] = beta[1+i]
+    for (j = 1; j <= J; j++) {
+        off = 2 + K + J + (j - 1) * K
+        for (i = 1; i <= K; i++) g[1,i] = g[1,i] + beta[off + i - 1] * xbar[1,j]
+    }
+
+    np = rows(deval)
+    Bn = bspline_basis_bk(deval, degree, knots, 0, dmax)
+    B0 = bspline_basis_bk(J(1,1,0), degree, knots, 0, dmax)
+    Bd = bspline_deriv_bk(deval, degree, knots, 0, dmax)
+    att = J(np,1,0); acrt = J(np,1,0)
+    for (i = 1; i <= np; i++) {
+        att[i]  = (Bn[i,.] :- B0) * g'
+        acrt[i] = Bd[i,.] * g'
+    }
+}
+
+void _contdid_run_cov(string scalar dvname, string scalar dyvname, string scalar xnames,
+                      real scalar degree, string scalar knotmatname, real scalar nk,
+                      real scalar npoints, real scalar dmin, real scalar dmax,
+                      string scalar attname, string scalar acrtname)
+{
+    real colvector d, dy, dt, knots, deval, att, acrt
+    real matrix Xm, km
+    real scalar i
+    d  = st_data(., dvname)
+    dy = st_data(., dyvname)
+    Xm = st_data(., xnames)
+    if (nk > 0) {
+        dt = select(d, d :> 0)
+        knots = _quantile_knots(dt, nk)
+    }
+    else if (knotmatname != "") {
+        km = st_matrix(knotmatname)
+        knots = km'
+    }
+    else {
+        knots = J(0, 1, 0)
+    }
+    deval = J(npoints, 1, 0)
+    for (i = 1; i <= npoints; i++) {
+        deval[i] = dmin + (dmax - dmin) * (i - 1) / (npoints - 1)
+    }
+    _contdid_fit_cov(d, dy, Xm, degree, knots, deval, att, acrt)
+    st_matrix(attname, att')
+    st_matrix(acrtname, acrt')
+}
 end

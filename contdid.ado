@@ -18,6 +18,7 @@ program define contdid, rclass
          degree(integer 1) ///               B-spline degree (1=linear)
          knots(numlist) ///                  explicit interior knots
          nknots(integer 0) ///               number of interior knots (quantile)
+         covariates(varlist) ///             covariates (conditional parallel trends; v3a)
          gvar(varname numeric) ///           treatment timing (0=never treated; enables staggered)
          cband ///                            uniform confidence band (sup-t)
          GRaph]                               // dose-response plot
@@ -59,6 +60,14 @@ program define contdid, rclass
     }
     if "`cband'" != "" & `reps' == 0 {
         di as error "contdid: cband requires reps() > 0 (multiplier bootstrap draws)"
+        exit 198
+    }
+    if "`covariates'" != "" & "`gvar'" != "" {
+        di as error "contdid: covariates() with staggered adoption is not yet supported (planned v3c)"
+        exit 198
+    }
+    if "`covariates'" != "" & "`cband'" != "" {
+        di as error "contdid: cband with covariates() is not yet supported"
         exit 198
     }
 
@@ -190,7 +199,12 @@ program define contdid, rclass
     tempname attm acrm
     matrix `attm' = J(`npoints', 5, .)
     matrix `acrm' = J(`npoints', 5, .)
-    mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_att", "_acrt")
+    if "`covariates'" == "" {
+        mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_att", "_acrt")
+    }
+    else {
+        mata: _contdid_run_cov("`dose'", "`dy'", "`covariates'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_att", "_acrt")
+    }
     forvalues k = 1/`npoints' {
         local dk = `dmin' + (`dmax' - `dmin') * (`k' - 1) / (`npoints' - 1)
         matrix `attm'[`k',1] = `dk'
@@ -222,7 +236,12 @@ program define contdid, rclass
         forvalues b = 1/`reps' {
             qui use `est', clear
             qui `bscmd'
-            mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
+            if "`covariates'" == "" {
+                mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
+            }
+            else {
+                mata: _contdid_run_cov("`dose'", "`dy'", "`covariates'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
+            }
             forvalues k = 1/`npoints' {
                 matrix boot[`b',`k']  = _batt[1,`k']
                 matrix boota[`b',`k'] = _bacrt[1,`k']

@@ -27,9 +27,14 @@ README 的 roadmap 还剩两项未做，本 spec 覆盖它们。二者难度差�
 
 ### 2.1 v3a 协变量
 
-- 平行趋势改为**条件**版本：给定协变量 X，处理组与对照组在无处理反事实下趋势相同。
-- 命令提供 `covariates(varlist)`；估计量对齐 R `cont_did(..., xformla=~X)` 的默认实现（先精读源码定死：是回归调整、IPW，还是双重稳健）。
-- 推断沿用 v2a 的影响函数 + multiplier bootstrap 框架；**带协变量后影响函数的构成必须与 R 源码逐行对齐**（这是最容易错的地方）。
+- 平行趋势放宽为**条件（强）平行趋势**：见论文**补充附录 SI.3**（Assumption SPT-X / Proposition S3）。
+- **重要现状**：R `contdid` 0.1.1 **不支持协变量**（`cont_did.R:126` 直接 `stop`）。因此 v3a **不是移植，而是超出 R 参考实现的贡献**；无法与 R 对拍，改用模拟验证。
+- 识别（Prop S3）：`ATT_x(d) = E[ΔY | X=x, D=d] − E[ΔY | X=x, D=0]`；汇总 `ATT(d) = E_X[ATT_x(d) | D>0]`。
+- 估计（已实现）：含 **D×X 交互**的联合线性 sieve
+  `ΔY = Σ_k β_k B_k(D) + X'γ + Σ_{k,j} δ_{kj} B_k(D)X_j + ε`，
+  基的边界节点取 `[0, dmax]` 使 `B_k(0)` 有定义；`ATT(d)=Σ_k(β_k+Σ_j δ_{kj}x̄_j)(B_k(d)−B_k(0))`，`x̄=E[X|D>0]`。
+- **交互必须保留**：只放可加项 X 会退化为无条件估计。
+- 见 `docs/research-notes-v3a.md`、`examples/reference/v3a_prototype.R`。
 
 ### 2.2 v3b CCK sieve
 
@@ -116,19 +121,21 @@ contdid depvar [if] [in], unit(varname) time(varname) dose(varname) ///
 
 ## 7. 验证方案
 
-1. **协变量正确性（v3a）**：造一个"平行趋势只有条件于 X 才成立"的 DGP；无条件估计有偏、有协变量估计无偏（误差随 N 收敛）。
-2. **R 对拍（v3a）**：与 R `cont_did(xformla=~X)` 点估计逐位对齐（容差 ≤ 1e-6）——**需要 R**（当前本机未装，见"还要做"）。
-3. **统一带覆盖（v3a）**：Monte Carlo 检验 sup-t 带覆盖 ≥ 名义水平。
-4. **CCK 正确性（v3b）**：与 R `dose_est_method="cck"` 对拍；无 R 时至少用模拟 DGP 的自洽性 + 与 `parametric` 在大样本下收敛到同一曲线。
-5. **向后兼容**：不带新选项时全部旧测试通过、结果逐位一致。
+1. **协变量正确性（v3a）**：条件 DGP（`examples/v3a_simdata.do`：X 同时影响处理选择与未处理趋势）下，无条件估计有偏、`covariates(x)` 估计接近真值。**无 R 对拍**（R 不支持协变量）；以 R 原型 `examples/reference/v3a_prototype.R` 逐位对齐 + 模拟证据。
+2. **Stata == R 原型（v3a）**：两者在条件 DGP 上逐位一致（已达成，见 `_test_v3a_cov.do`）。
+3. **向后兼容**：不带 `covariates()` 时全部旧测试通过、结果与 v1.0.0 逐位一致（`examples/_test_backcompat.do`）。
+4. **统一带覆盖（v3a）**：Monte Carlo 检验含协变量下 sup-t 带覆盖 ≥ 名义水平。**（未完成：cband+协变量的影响函数）**
+5. **CCK 正确性（v3b）**：与 R `dose_est_method="cck"` 对拍；无 R 时至少用模拟 DGP 的自洽性 + 与 `parametric` 在大样本下收敛到同一曲线。
 
 ---
 
 ## 8. 交付物与验收标准
 
 - [ ] `covariates()` 可用且有文档（v3a）
-- [ ] 条件平行趋势 DGP 下估计无偏（模拟证据）
-- [ ] 与 R `contdid` 协变量路径对齐（需 R）
+- [x] 条件平行趋势 DGP 下估计接近真值（模拟证据，`_test_v3a_cov.do` PASS）
+- [x] Stata 与 R 原型（`v3a_prototype.R`）逐位一致
+- [x] 向后兼容：默认路径与 v1.0.0 逐位一致
+- [ ] 含协变量的 `cband`（影响函数）——**未完成**
 - [ ] `dose_est_method(cck)` 可用且有文档（v3b）
 - [ ] 全部旧测试回归通过、向后兼容
 - [ ] README / sthlp / CHANGELOG 更新；版本升至 v0.4.0（v3a）与 v0.5.0（v3b）
