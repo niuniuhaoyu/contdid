@@ -1,5 +1,5 @@
 *! contdid: Difference-in-Differences with a Continuous Treatment
-*! version 1.0.0  2026-09-29  Haoyu Niu
+*! version 1.1.0  2026-10-06  Haoyu Niu
 *! Implements Callaway, Goodman-Bacon & Sant'Anna (2024/2025)
 *! Two-period or staggered continuous-treatment DiD. ATT(d) and ACRT(d) via B-spline (default linear).
 
@@ -64,10 +64,6 @@ program define contdid, rclass
     }
     if "`covariates'" != "" & "`gvar'" != "" {
         di as error "contdid: covariates() with staggered adoption is not yet supported (planned v3c)"
-        exit 198
-    }
-    if "`covariates'" != "" & "`cband'" != "" {
-        di as error "contdid: cband with covariates() is not yet supported"
         exit 198
     }
 
@@ -216,7 +212,12 @@ program define contdid, rclass
     * ---------- uniform confidence band (cband) ----------
     if "`cband'" != "" {
         set seed `seed'
-        mata: _contdid_cband("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', `reps', `level')
+        if "`covariates'" == "" {
+            mata: _contdid_cband("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', `reps', `level')
+        }
+        else {
+            mata: _contdid_cband_cov("`dose'", "`dy'", "`covariates'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', `reps', `level')
+        }
     }
 
     * ---------- cluster bootstrap ----------

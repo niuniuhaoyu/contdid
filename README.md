@@ -27,9 +27,15 @@ ACRT(d) is the derivative of the fitted curve. Pointwise confidence intervals co
 cluster bootstrap, and an optional **uniform confidence band** (`cband`) covers the whole
 curve simultaneously via a multiplier bootstrap.
 
+With **`covariates()`**, parallel trends is relaxed to **conditional (strong) parallel
+trends** (CGBS, Supplemental Appendix SI.3, Proposition S3):
+`ATT_x(d) = E[ΔY | X=x, D=d] − E[ΔY | X=x, D=0]`, aggregated as
+`ATT(d) = E_X[ATT_x(d) | D>0]`. This extends the estimator beyond the R reference
+implementation, which does not support covariates.
+
 > **Scope:** two-period panel / repeated cross-section, or **staggered adoption** (with `gvar()`),
-> continuous dose, ATT(d) and ACRT(d). Covariates and the CCK data-driven sieve estimator are on
-> the roadmap (see [CHANGELOG](CHANGELOG.md)).
+> continuous dose, ATT(d) and ACRT(d), and **conditional parallel trends** (with `covariates()`).
+> The CCK data-driven sieve estimator remains on the roadmap (see [CHANGELOG](CHANGELOG.md)).
 
 ## Installation
 
@@ -53,6 +59,9 @@ contdid y, unit(id) time(t) dose(d) degree(3) nknots(2) reps(999) seed(12345) cb
 
 * Staggered adoption: units treated at different times (g = treatment period, 0 = never)
 contdid y, unit(id) time(t) dose(d) gvar(g) npoints(20) reps(999) seed(12345)
+
+* Conditional parallel trends with covariates (extends the R reference implementation)
+contdid y, unit(id) time(t) dose(d) covariates(x1 x2) cband
 ```
 
 | Option | Default | Description |
@@ -60,6 +69,7 @@ contdid y, unit(id) time(t) dose(d) gvar(g) npoints(20) reps(999) seed(12345)
 | `unit(varname)` | — | unit / panel identifier (required) |
 | `time(varname)` | — | time variable, two periods (required) |
 | `dose(varname)` | — | continuous treatment dose, ≥ 0, 0 = untreated (required) |
+| `covariates(varlist)` | — | covariates for conditional (strong) parallel trends (two-period only) |
 | `gvar(varname)` | — | treatment timing (0 = never treated); enables staggered adoption |
 | `degree(#)` | 1 | B-spline degree (1 = linear, 2 = quadratic, 3 = cubic) |
 | `nknots(#)` | 0 | number of interior knots (placed at dose quantiles) |

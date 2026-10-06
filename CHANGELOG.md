@@ -4,15 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added (v3a, in progress)
+### Added (v3a)
 - `covariates(varlist)` option: conditional (strong) parallel trends estimation
   of ATT(d)/ACRT(d), following Callaway-Goodman-Bacon-Sant'Anna (2024/2025),
   Supplemental Appendix SI.3 (Assumption SPT-X, Proposition S3). Joint sieve
   with dose-by-covariate interactions; `ATT(d) = E_X[ATT_x(d) | D>0]`.
+  Supports `cband` (influence-function multiplier bootstrap that accounts for
+  both the OLS parameters and the treated covariate means).
   Verified on a conditional-parallel-trends DGP (`examples/_test_v3a_cov.do`)
   against an independent R prototype (`examples/reference/v3a_prototype.R`).
-- Not yet supported (planned): `cband` with `covariates()`, and `covariates()`
-  with staggered adoption (`gvar()`).
+- Not yet supported (planned): `covariates()` with staggered adoption (`gvar()`).
 
 ## [1.0.0] - 2026-09-29
 

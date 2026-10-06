@@ -1,7 +1,7 @@
 {smcl}
 {* 29 Sep 2026}{...}
 {hline}
-{p 4 8 2}{bf:contdid} — Difference-in-Differences with a continuous treatment{right:version 1.0.0}
+{p 4 8 2}{bf:contdid} — Difference-in-Differences with a continuous treatment{right:version 1.1.0}
 {hline}
 
 {title:Title}
@@ -16,7 +16,8 @@ continuous treatment.
 {p 8 12 2}
 {cmd:contdid} {it:depvar} {ifin}, {cmdab:unit:(}{it:varname}{cmd:)}
 {cmdab:time:(}{it:varname}{cmd:)} {cmdab:dose:(}{it:varname}{cmd:)}
-{cmd:[}{cmdab:gvar:(}{it:varname}{cmd:)} {cmdab:degree:(}{it:#}{cmd:)}
+{cmd:[}{cmdab:covariates:(}{it:varlist}{cmd:)} {cmdab:gvar:(}{it:varname}{cmd:)}
+{cmdab:degree:(}{it:#}{cmd:)}
 {cmdab:nknots:(}{it:#}{cmd:)}
 {cmdab:knots:(}{it:numlist}{cmd:)} {cmdab:npoints:(}{it:#}{cmd:)}
 {cmdab:level:(}{it:#}{cmd:)} {cmdab:reps:(}{it:#}{cmd:)}
@@ -43,6 +44,13 @@ derivative ACRT(d), and reports pointwise confidence intervals from a cluster
 bootstrap; {cmd:cband} adds a uniform confidence band via a multiplier
 bootstrap.
 
+{p 4 4 2}
+With {cmd:covariates()}, identification uses conditional (strong) parallel
+trends (CGBS 2024/2025, Supplemental Appendix SI.3): ATT(d) = E_X[ ATT_x(d) |
+D>0 ], with ATT_x(d) = E[ΔY | X=x, D=d] − E[ΔY | X=x, D=0]. This extends the
+estimator beyond the R reference implementation, which does not support
+covariates.
+
 {title:Options}
 
 {p 4 4 2}{cmdab:unit:(}{it:varname}{cmd:)} identifies the panel units.
@@ -51,6 +59,12 @@ exactly two distinct values.
 {p 4 4 2}{cmdab:dose:(}{it:varname}{cmd:)} is the continuous treatment dose.
 It must be non-negative, with 0 indicating untreated units; a group with
 {cmd:dose} = 0 is required.
+{p 4 4 2}{cmdab:covariates:(}{it:varlist}{cmd:)} conditions on covariates,
+relaxing parallel trends to {bf:conditional (strong) parallel trends}
+(Callaway, Goodman-Bacon, and Sant'Anna 2024/2025, Supplemental Appendix SI.3,
+Proposition S3). It estimates a joint sieve with dose-by-covariate
+interactions, where ATT(d) = E[ΔY | X, D=d] − E[ΔY | X, D=0] averaged over the
+treated covariate distribution. Covariates must be unit-level (time-invariant).
 {p 4 4 2}{cmdab:gvar:(}{it:varname}{cmd:)} is the treatment timing (the period
 when a unit is first treated; 0 = never treated). Specifying {cmd:gvar()} enables
 staggered adoption with multiple treatment cohorts.
@@ -96,6 +110,12 @@ Linear dose-response of {cmd:y} on continuous dose {cmd:d}, with a plot:
 Cubic B-spline with 2 interior knots and a uniform confidence band:
 
 {phang2}{cmd:. contdid y, unit(id) time(t) dose(d) degree(3) nknots(2) reps(999) seed(1) cband}{p_end}
+
+{p 4 4 2}
+Conditional (strong) parallel trends with covariates {it:x1} and {it:x2}, plus a
+uniform band:
+
+{phang2}{cmd:. contdid y, unit(id) time(t) dose(d) covariates(x1 x2) cband}{p_end}
 
 {title:References}
 

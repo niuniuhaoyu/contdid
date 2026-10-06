@@ -453,4 +453,143 @@ void _contdid_run_cov(string scalar dvname, string scalar dyvname, string scalar
     st_matrix(attname, att')
     st_matrix(acrtname, acrt')
 }
+
+// v3a cband: influence-function multiplier bootstrap with covariates.
+// IF includes IF(theta) (OLS among all units) and IF(xbar) (treated covariate means).
+void _contdid_cband_cov(string scalar dvname, string scalar dyvname, string scalar xnames,
+                        real scalar degree, string scalar knotmatname, real scalar nk,
+                        real scalar npoints, real scalar dmin, real scalar dmax,
+                        real scalar Bdraws, real scalar level)
+{
+    real scalar n, J, K, dmaxv, np, i, j, jj, k, off, b, alpha, qa, qc, va, vc, sa, sc, p0
+    real colvector d, dy, dt, knots, deval, e, supb_a, supb_c, sigma_a, sigma_c, xi, G, se_a, se_c, att, acrt
+    real rowvector  B0, cA, cC, g, xbar
+    real matrix Xm, B, W, theta, bread, IFtheta, Bn, Bd, km, IFxbar, psi_a, psi_c, cbatt, cbacrt
+    real colvector rows_a, rows_c
+
+    d  = st_data(., dvname)
+    dy = st_data(., dyvname)
+    Xm = st_data(., xnames)
+    if (nk > 0) {
+        dt = select(d, d :> 0)
+        knots = _quantile_knots(dt, nk)
+    }
+    else if (knotmatname != "") {
+        km = st_matrix(knotmatname)
+        knots = km'
+    }
+    else {
+        knots = J(0, 1, 0)
+    }
+
+    n = rows(d); J = cols(Xm); dmaxv = max(d)
+    B = bspline_basis_bk(d, degree, knots, 0, dmaxv)
+    K = cols(B)
+    W = (J(n,1,1), B, Xm)
+    for (jj = 1; jj <= J; jj++) W = W, (B :* Xm[.,jj])
+    theta = qrsolve(W, dy)
+    e = dy - W * theta
+    bread = invsym(W'W / n)
+    IFtheta = J(n, cols(W), 0)
+    for (i = 1; i <= n; i++) IFtheta[i,.] = (e[i] * (bread * W[i,.]'))'
+
+    xbar = J(1, J, 0)
+    for (jj = 1; jj <= J; jj++) xbar[1,jj] = mean(select(Xm[.,jj], d :> 0))
+    p0 = mean(d :> 0)
+    IFxbar = J(n, J, 0)
+    for (jj = 1; jj <= J; jj++) {
+        for (i = 1; i <= n; i++) {
+            if (d[i] > 0) IFxbar[i,jj] = (Xm[i,jj] - xbar[1,jj]) / p0
+        }
+    }
+
+    deval = J(npoints, 1, 0)
+    for (i = 1; i <= npoints; i++) deval[i] = dmin + (dmax - dmin) * (i - 1) / (npoints - 1)
+    np = npoints
+    Bn = bspline_basis_bk(deval, degree, knots, 0, dmaxv)
+    B0 = bspline_basis_bk(J(1,1,0), degree, knots, 0, dmaxv)
+    Bd = bspline_deriv_bk(deval, degree, knots, 0, dmaxv)
+
+    psi_a = J(n, np, 0)
+    psi_c = J(n, np, 0)
+    for (j = 1; j <= np; j++) {
+        cA = Bn[j,.] :- B0
+        cC = Bd[j,.]
+        for (i = 1; i <= n; i++) {
+            va = 0; vc = 0
+            for (k = 1; k <= K; k++) {
+                va = va + cA[k] * IFtheta[i, 1+k]
+                vc = vc + cC[k] * IFtheta[i, 1+k]
+            }
+            for (jj = 1; jj <= J; jj++) {
+                off = 2 + K + J + (jj - 1) * K
+                for (k = 1; k <= K; k++) {
+                    va = va + xbar[1,jj] * cA[k] * IFtheta[i, off + k - 1]
+                    vc = vc + xbar[1,jj] * cC[k] * IFtheta[i, off + k - 1]
+                }
+            }
+            for (jj = 1; jj <= J; jj++) {
+                off = 2 + K + J + (jj - 1) * K
+                sa = 0; sc = 0
+                for (k = 1; k <= K; k++) {
+                    sa = sa + theta[off + k - 1] * cA[k]
+                    sc = sc + theta[off + k - 1] * cC[k]
+                }
+                va = va + sa * IFxbar[i,jj]
+                vc = vc + sc * IFxbar[i,jj]
+            }
+            psi_a[i,j] = va
+            psi_c[i,j] = vc
+        }
+    }
+
+    sigma_a = J(1, np, 0)
+    sigma_c = J(1, np, 0)
+    for (j = 1; j <= np; j++) {
+        sigma_a[1,j] = sqrt(mean(psi_a[.,j] :^ 2))
+        sigma_c[1,j] = sqrt(mean(psi_c[.,j] :^ 2))
+    }
+
+    supb_a = J(Bdraws, 1, 0)
+    supb_c = J(Bdraws, 1, 0)
+    for (b = 1; b <= Bdraws; b++) {
+        xi = (runiform(n, 1) :> 0.5) :* 2 :- 1
+        G = (xi' * psi_a) / sqrt(n)
+        supb_a[b] = max(abs(G) :/ sigma_a)
+        G = (xi' * psi_c) / sqrt(n)
+        supb_c[b] = max(abs(G) :/ sigma_c)
+    }
+    alpha = 1 - level / 100
+    supb_a = sort(supb_a, 1)
+    supb_c = sort(supb_c, 1)
+    qa = ceil((1 - alpha) * Bdraws)
+    qc = qa
+    st_numscalar("crit_att", supb_a[qa])
+    st_numscalar("crit_acrt", supb_c[qc])
+
+    se_a = sigma_a' / sqrt(n)
+    se_c = sigma_c' / sqrt(n)
+
+    att = J(np, 1, 0)
+    acrt = J(np, 1, 0)
+    for (j = 1; j <= np; j++) {
+        g = J(1, K, 0)
+        for (k = 1; k <= K; k++) g[1,k] = theta[1+k]
+        for (jj = 1; jj <= J; jj++) {
+            off = 2 + K + J + (jj - 1) * K
+            for (k = 1; k <= K; k++) g[1,k] = g[1,k] + theta[off + k - 1] * xbar[1,jj]
+        }
+        att[j]  = (Bn[j,.] :- B0) * g'
+        acrt[j] = Bd[j,.] * g'
+    }
+
+    cbatt = J(np, 4, 0)
+    cbacrt = J(np, 4, 0)
+    for (j = 1; j <= np; j++) {
+        cbatt[j,.]  = (deval[j], att[j], att[j] - supb_a[qa] * se_a[j], att[j] + supb_a[qa] * se_a[j])
+        cbacrt[j,.] = (deval[j], acrt[j], acrt[j] - supb_c[qc] * se_c[j], acrt[j] + supb_c[qc] * se_c[j])
+    }
+    st_matrix("cb_att", cbatt)
+    st_matrix("cb_acrt", cbacrt)
+}
 end

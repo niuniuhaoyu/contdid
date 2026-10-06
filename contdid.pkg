@@ -7,7 +7,7 @@ d with cluster-bootstrap pointwise intervals, a multiplier-bootstrap
 d uniform confidence band, and staggered adoption (gvar()).
 d
 d Author: Haoyu Niu
-d Distribution-Date: 20260929
+d Distribution-Date: 20261006
 d Requires: Stata version 16
 d
 f contdid.ado
