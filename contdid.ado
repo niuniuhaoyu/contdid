@@ -18,6 +18,8 @@ program define contdid, rclass
          degree(integer 1) ///               B-spline degree (1=linear)
          knots(numlist) ///                  explicit interior knots
          nknots(integer 0) ///               number of interior knots (quantile)
+         dose_est_method(string) ///          parametric (default) or dds (data-driven sieve; v3b)
+         maxknots(integer 5) ///              max interior knots for dose_est_method(dds)
          covariates(varlist) ///             covariates (conditional parallel trends; v3a)
          gvar(varname numeric) ///           treatment timing (0=never treated; enables staggered)
          cband ///                            uniform confidence band (sup-t)
@@ -64,6 +66,14 @@ program define contdid, rclass
     }
     if "`covariates'" != "" & "`gvar'" != "" {
         di as error "contdid: covariates() with staggered adoption is not yet supported (planned v3c)"
+        exit 198
+    }
+    if "`dose_est_method'" != "" & "`dose_est_method'" != "parametric" & "`dose_est_method'" != "dds" {
+        di as error "contdid: dose_est_method() must be parametric or dds"
+        exit 198
+    }
+    if "`dose_est_method'" == "dds" & ("`covariates'" != "" | "`gvar'" != "") {
+        di as error "contdid: dose_est_method(dds) supports the two-period path only"
         exit 198
     }
 
@@ -195,7 +205,12 @@ program define contdid, rclass
     tempname attm acrm
     matrix `attm' = J(`npoints', 5, .)
     matrix `acrm' = J(`npoints', 5, .)
-    if "`covariates'" == "" {
+    if "`dose_est_method'" == "dds" {
+        mata: _contdid_run_dds("`dose'", "`dy'", `degree', `maxknots', `npoints', `dmin', `dmax', "_att", "_acrt")
+        di as text "dose_est_method(dds): selected interior knots = " scalar(dds_nknots)
+        return scalar dds_nknots = dds_nknots
+    }
+    else if "`covariates'" == "" {
         mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_att", "_acrt")
     }
     else {
@@ -237,7 +252,10 @@ program define contdid, rclass
         forvalues b = 1/`reps' {
             qui use `est', clear
             qui `bscmd'
-            if "`covariates'" == "" {
+            if "`dose_est_method'" == "dds" {
+                mata: _contdid_run_dds("`dose'", "`dy'", `degree', `maxknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
+            }
+            else if "`covariates'" == "" {
                 mata: _contdid_run("`dose'", "`dy'", `degree', "`knotmatname'", `nknots', `npoints', `dmin', `dmax', "_batt", "_bacrt")
             }
             else {

@@ -592,4 +592,50 @@ void _contdid_cband_cov(string scalar dvname, string scalar dyvname, string scal
     st_matrix("cb_att", cbatt)
     st_matrix("cb_acrt", cbacrt)
 }
+
+// v3b (scoped): data-driven sieve for the dose-response. Selects the number of
+// interior knots (0..nkmax) by leave-one-out CV on the treated fit. NOTE: this is
+// NOT the exact Chen-Christensen-Kankanala / npiv "cck" estimator (which uses
+// Tikhonov regularization and a data-driven J); it is a tractable data-driven
+// sieve. The chosen knots are returned in dds_nknots.
+void _contdid_run_dds(string scalar dvname, string scalar dyvname, real scalar degree,
+                      real scalar nkmax, real scalar npoints,
+                      real scalar dmin, real scalar dmax,
+                      string scalar attname, string scalar acrtname)
+{
+    real colvector d, dy, dt, dyt, knots, deval, att, acrt, e, h, beta, cvvec
+    real matrix Bt, Xt, bread
+    real scalar nk, bestnk, bestcv, cvv, i, nt
+    d  = st_data(., dvname)
+    dy = st_data(., dyvname)
+    dt = select(d, d :> 0)
+    dyt = select(dy, d :> 0)
+    nt = rows(dt)
+    bestnk = 0
+    bestcv = .
+    for (nk = 0; nk <= nkmax; nk++) {
+        if (nk > 0) knots = _quantile_knots(dt, nk)
+        else knots = J(0, 1, 0)
+        Bt = bspline_basis(dt, degree, knots)
+        Xt = (J(nt, 1, 1), Bt)
+        bread = invsym(Xt'Xt)
+        beta = qrsolve(Xt, dyt)
+        e = dyt - Xt * beta
+        h = J(nt, 1, 0)
+        for (i = 1; i <= nt; i++) h[i] = Xt[i,.] * bread * Xt[i,.]'
+        cvv = mean( (e :/ (1 :- h)) :^ 2 )
+        if (nk == 0 | cvv < bestcv) {
+            bestcv = cvv
+            bestnk = nk
+        }
+    }
+    if (bestnk > 0) knots = _quantile_knots(dt, bestnk)
+    else knots = J(0, 1, 0)
+    deval = J(npoints, 1, 0)
+    for (i = 1; i <= npoints; i++) deval[i] = dmin + (dmax - dmin) * (i - 1) / (npoints - 1)
+    _contdid_fit(d, dy, degree, knots, deval, att, acrt)
+    st_matrix(attname, att')
+    st_matrix(acrtname, acrt')
+    st_numscalar("dds_nknots", bestnk)
+}
 end

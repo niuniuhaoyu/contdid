@@ -15,6 +15,14 @@ All notable changes to this project will be documented in this file.
   against an independent R prototype (`examples/reference/v3a_prototype.R`).
 - Not yet supported (planned): `covariates()` with staggered adoption (`gvar()`).
 
+### Added (v3b, scoped)
+- `dose_est_method(dds)`: data-driven sieve — selects the number of interior knots
+  (0..`maxknots()`) by leave-one-out CV on the treated fit, then estimates ATT(d)/ACRT(d).
+  NOTE: this is a **tractable data-driven sieve, not the exact Chen-Christensen-Kankanala /
+  npiv "cck" estimator** (which uses Tikhonov regularization and a data-driven J). Exact
+  parity with R `contdid`'s `dose_est_method="cck"` is **not** achieved. Verified on a
+  nonlinear DGP (`examples/_test_v3b_dds.do`).
+
 ## [1.0.0] - 2026-09-29
 
 First stable release. Two-period and staggered continuous-treatment DiD, B-spline
