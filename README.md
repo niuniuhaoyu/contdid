@@ -70,6 +70,7 @@ contdid y, unit(id) time(t) dose(d) covariates(x1 x2) cband
 | `time(varname)` | — | time variable, two periods (required) |
 | `dose(varname)` | — | continuous treatment dose, ≥ 0, 0 = untreated (required) |
 | `covariates(varlist)` | — | covariates for conditional (strong) parallel trends (two-period only) |
+| `dose_est_method(parametric\|dds)` | parametric | `parametric` = fixed B-spline; `dds` = data-driven sieve (LOO-CV knot selection; not exact CCK) |
 | `gvar(varname)` | — | treatment timing (0 = never treated); enables staggered adoption |
 | `degree(#)` | 1 | B-spline degree (1 = linear, 2 = quadratic, 3 = cubic) |
 | `nknots(#)` | 0 | number of interior knots (placed at dose quantiles) |

@@ -19,6 +19,7 @@ continuous treatment.
 {cmd:[}{cmdab:covariates:(}{it:varlist}{cmd:)} {cmdab:gvar:(}{it:varname}{cmd:)}
 {cmdab:degree:(}{it:#}{cmd:)}
 {cmdab:nknots:(}{it:#}{cmd:)}
+{cmdab:dose_est_method:(}{it:parametric|c dds}{cmd:)} {cmdab:maxknots:(}{it:#}{cmd:)}
 {cmdab:knots:(}{it:numlist}{cmd:)} {cmdab:npoints:(}{it:#}{cmd:)}
 {cmdab:level:(}{it:#}{cmd:)} {cmdab:reps:(}{it:#}{cmd:)}
 {cmdab:seed:(}{it:#}{cmd:)} {cmdab:cluster:(}{it:varname}{cmd:)}
@@ -72,6 +73,14 @@ staggered adoption with multiple treatment cohorts.
 linear; 2 = quadratic; 3 = cubic).
 {p 4 4 2}{cmdab:nknots:(}{it:#}{cmd:)} sets the number of interior knots,
 placed at dose quantiles (default 0 = global polynomial).
+{p 4 4 2}{cmdab:dose_est_method:(}{it:parametric|dds}{cmd:)} selects the
+dose-response estimator: {cmd:parametric} (default; fixed B-spline degree/knots) or
+{cmd:dds} (data-driven sieve: interior knots chosen by leave-one-out CV, up to
+{cmd:maxknots()}). {cmd:dds} is a tractable data-driven sieve, not the exact
+Chen-Christensen-Kankanala/npiv estimator, and does not aim for parity with R
+{cmd:contdid}'s {cmd:dose_est_method="cck"}.
+{p 4 4 2}{cmdab:maxknots:(}{it:#}{cmd:)} sets the maximum number of interior knots
+tried by {cmd:dose_est_method(dds)} (default 5).
 {p 4 4 2}{cmdab:knots:(}{it:numlist}{cmd:)} specifies interior knots
 explicitly (overrides {cmd:nknots()}).
 {p 4 4 2}{cmdab:npoints:(}{it:#}{cmd:)} sets the number of evaluation doses
