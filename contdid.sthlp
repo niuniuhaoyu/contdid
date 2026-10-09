@@ -4,6 +4,8 @@
 {p 4 8 2}{bf:contdid} — Difference-in-Differences with a continuous treatment{right:version 1.1.0}
 {hline}
 
+{p 4 4 2}{it:Chinese help / 中文帮助:} {help contdid_zh}
+
 {title:Title}
 
 {p 4 4 2}
