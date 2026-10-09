@@ -1,5 +1,7 @@
 # contdid
 
+[English](README.md) | [简体中文](README_zh.md)
+
 **Difference-in-Differences with a Continuous Treatment for Stata**
 
 [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-blue.svg)](https://www.stata.com/)
