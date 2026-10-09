@@ -4,10 +4,13 @@ d Implements Callaway, Goodman-Bacon & Sant'Anna (2024, NBER WP 32117):
 d continuous-treatment DiD with B-spline dose-response. Estimates the
 d dose-response function ATT(d) and the average causal response ACRT(d),
 d with cluster-bootstrap pointwise intervals, a multiplier-bootstrap
-d uniform confidence band, and staggered adoption (gvar()).
+d uniform confidence band, staggered adoption (gvar()), and conditional
+d (strong) parallel trends via covariates() (an extension beyond the R
+d reference implementation). dose_est_method(dds) offers a data-driven sieve
+d (LOO-CV knot selection; not the exact CCK/npiv estimator).
 d
 d Author: Haoyu Niu
-d Distribution-Date: 20261006
+d Distribution-Date: 20261007
 d Requires: Stata version 16
 d
 f contdid.ado

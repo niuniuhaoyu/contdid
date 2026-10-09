@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.1.0] - 2026-10-07
 
 ### Added (v3a)
 - `covariates(varlist)` option: conditional (strong) parallel trends estimation

@@ -6,7 +6,7 @@
 
 [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-blue.svg)](https://www.stata.com/)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-green.svg)](CHANGELOG.md)
+[![Version: 1.1.0](https://img.shields.io/badge/Version-1.1.0-green.svg)](CHANGELOG.md)
 
 `contdid` 实现 **Callaway、Goodman-Bacon & Sant'Anna (2024/2025) 的连续处理双重差分
 （DiD）估计量**，填补 Stata 生态的空白：作者的参考实现（`contdid`）只有 **R** 版。
@@ -213,3 +213,7 @@ do examples/make_figure.do   // 生成 examples/contdid_figure.png
 ## 许可
 
 [AGPL-3.0](LICENSE)
+
+---
+
+[English](README.md) | [简体中文](README_zh.md)
